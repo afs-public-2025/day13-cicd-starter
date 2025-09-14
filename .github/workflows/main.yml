@@ -121,7 +121,17 @@ jobs:
 
     - name: Deploy to Railway App Service
       run: |
-        echo "Starting deployment to Railway..."
+        echo "Starting deployment to Railway with dev profile..."
+        echo "Setting Spring Boot active profile to 'dev'"
+        
+        # Set environment variable for Spring Boot profile
+        railway variables set SPRING_PROFILES_ACTIVE=dev --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        
+        # Verify the environment variable was set
+        echo "Verifying environment variables..."
+        railway variables --service ${{ secrets.RAILWAY_SERVICE_ID }} || echo "Could not list variables"
+        
+        # Deploy the service
         railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -171,6 +181,23 @@ jobs:
             echo "✅ Actuator health check passed!"
             echo "📋 Health check response:"
             curl -s "${SERVICE_URL}/actuator/health" | jq '.' 2>/dev/null || curl -s "${SERVICE_URL}/actuator/health"
+            echo ""
+            
+            # Verify active profile
+            echo "🔧 Verifying active Spring profile..."
+            PROFILE_CHECK=$(curl -s --connect-timeout 10 --max-time 30 "${SERVICE_URL}/actuator/env/spring.profiles.active" 2>/dev/null || echo "")
+            if [ ! -z "$PROFILE_CHECK" ]; then
+              echo "📋 Active profile info:"
+              echo "$PROFILE_CHECK" | jq '.' 2>/dev/null || echo "$PROFILE_CHECK"
+              
+              if echo "$PROFILE_CHECK" | grep -q '"dev"'; then
+                echo "✅ Confirmed: Service is running with 'dev' profile"
+              else
+                echo "⚠️  Warning: Service may not be using 'dev' profile"
+              fi
+            else
+              echo "ℹ️  Could not verify active profile (endpoint may not be exposed)"
+            fi
             echo ""
             echo "🎉 Service is healthy and ready to serve requests!"
             exit 0

@@ -24,7 +24,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,env
   endpoint:
     health:
       show-details: always
+    env:
+      show-values: when_authorized
