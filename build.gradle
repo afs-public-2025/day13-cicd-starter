@@ -41,8 +41,8 @@ tasks.named('test') {
 
 sonar {
     properties {
-        property "sonar.projectKey", "ci-cd-demo"
-        property "sonar.organization", "yuanshenjian-cn"
+        property "sonar.projectKey", "afs-public-2025_ci-cd-demo"
+        property "sonar.organization", "afs-public-2025"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.sources", "src/main/java"
         property "sonar.tests", "src/test/java"
