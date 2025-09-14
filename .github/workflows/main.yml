@@ -136,17 +136,87 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
         
-    - name: Wait for Service to Start  
+    - name: Health Check
       run: |
-        echo "Waiting for service to start..."
-        echo "Railway deployment completed, giving service time to initialize..."
+        echo "Starting health check for deployed service..."
         
-        # Simple wait approach - Railway usually takes 1-2 minutes to start
-        echo "Waiting 90 seconds for service to initialize..."
-        sleep 90
+        if [ -z "${{ secrets.SERVICE_BASE_URL }}" ]; then
+          echo "❌ SERVICE_BASE_URL secret not configured"
+          echo "Please add SERVICE_BASE_URL to your dev environment secrets"
+          exit 1
+        fi
         
-        echo "✅ Service startup wait completed"
-        echo "Note: For more precise health checking, consider adding SERVICE_URL to secrets"
+        SERVICE_URL="${{ secrets.SERVICE_BASE_URL }}"
+        echo "Service URL: $SERVICE_URL"
+        
+        # Health check configuration
+        TIMEOUT=300          # 5 minutes maximum
+        ELAPSED=0
+        SLEEP_INTERVAL=15    # Check every 15 seconds
+        INITIAL_WAIT=30      # Wait 30 seconds before first check
+        
+        echo "Waiting ${INITIAL_WAIT} seconds before starting health checks..."
+        sleep $INITIAL_WAIT
+        
+        echo "Starting health check polling (max ${TIMEOUT}s, checking every ${SLEEP_INTERVAL}s)..."
+        
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          ATTEMPT=$((ELAPSED/SLEEP_INTERVAL + 1))
+          echo ""
+          echo "=== Health Check Attempt $ATTEMPT (${ELAPSED}s elapsed) ==="
+          
+          # Primary check: Spring Boot Actuator health endpoint
+          echo "🔍 Checking actuator health endpoint: ${SERVICE_URL}/actuator/health"
+          if curl -s -f --connect-timeout 10 --max-time 30 "${SERVICE_URL}/actuator/health" > /dev/null 2>&1; then
+            echo "✅ Actuator health check passed!"
+            echo "📋 Health check response:"
+            curl -s "${SERVICE_URL}/actuator/health" | jq '.' 2>/dev/null || curl -s "${SERVICE_URL}/actuator/health"
+            echo ""
+            echo "🎉 Service is healthy and ready to serve requests!"
+            exit 0
+          else
+            echo "❌ Actuator health endpoint not responding"
+          fi
+          
+          # Fallback check: Root endpoint
+          echo "🔍 Checking root endpoint: ${SERVICE_URL}/"
+          if curl -s -f --connect-timeout 10 --max-time 30 "${SERVICE_URL}/" > /dev/null 2>&1; then
+            echo "✅ Root endpoint responding!"
+            echo "📋 Root endpoint response code:"
+            curl -s -w "HTTP Status: %{http_code}\n" -o /dev/null "${SERVICE_URL}/"
+            echo ""
+            echo "🎉 Service is responding (actuator may not be available yet)!"
+            exit 0
+          else
+            echo "❌ Root endpoint not responding"
+          fi
+          
+          # Additional check: Any successful HTTP response
+          echo "🔍 Checking for any HTTP response: ${SERVICE_URL}"
+          HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null --connect-timeout 10 --max-time 30 "${SERVICE_URL}" || echo "000")
+          if [ "$HTTP_CODE" != "000" ] && [ "$HTTP_CODE" != "404" ]; then
+            echo "✅ Service responding with HTTP $HTTP_CODE"
+            echo "🎉 Service is up (may still be initializing)!"
+            exit 0
+          else
+            echo "❌ No HTTP response (code: $HTTP_CODE)"
+          fi
+          
+          echo "⏳ Service not ready yet, waiting ${SLEEP_INTERVAL}s before next check..."
+          sleep $SLEEP_INTERVAL
+          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+        done
+        
+        echo ""
+        echo "💥 Health check failed after ${TIMEOUT} seconds"
+        echo "❌ Service did not become healthy within the timeout period"
+        echo ""
+        echo "🔍 Final diagnostic information:"
+        echo "Service URL: $SERVICE_URL"
+        echo "Total attempts: $((TIMEOUT/SLEEP_INTERVAL))"
+        echo "Please check Railway deployment logs for service startup issues"
+        
+        exit 1
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
