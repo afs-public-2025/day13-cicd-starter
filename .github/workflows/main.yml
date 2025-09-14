@@ -121,7 +121,71 @@ jobs:
 
     - name: Deploy to Railway App Service
       run: |
-        railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        echo "Starting deployment to Railway..."
+        railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        
+    - name: Verify Deployment Status
+      run: |
+        echo "Checking deployment status..."
+        # Get the service status
+        SERVICE_STATUS=$(railway status --service ${{ secrets.RAILWAY_SERVICE_ID }} --json | jq -r '.status')
+        echo "Service status: $SERVICE_STATUS"
+        
+        if [ "$SERVICE_STATUS" != "SUCCESS" ] && [ "$SERVICE_STATUS" != "DEPLOYING" ]; then
+          echo "❌ Deployment failed with status: $SERVICE_STATUS"
+          exit 1
+        fi
+        
+        echo "✅ Deployment initiated successfully"
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        
+    - name: Wait for Service to Start
+      run: |
+        echo "Waiting for service to start..."
+        # Get the service URL
+        SERVICE_URL=$(railway domain --service ${{ secrets.RAILWAY_SERVICE_ID }} | head -n 1)
+        if [ -z "$SERVICE_URL" ]; then
+          echo "❌ Could not get service URL"
+          exit 1
+        fi
+        echo "Service URL: $SERVICE_URL"
+        
+        # Wait for service to respond (max 5 minutes)
+        TIMEOUT=300
+        ELAPSED=0
+        SLEEP_INTERVAL=10
+        
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          echo "Checking health at ${SERVICE_URL}/actuator/health (attempt $((ELAPSED/SLEEP_INTERVAL + 1)))"
+          
+          # Try actuator health endpoint first
+          if curl -s -f "${SERVICE_URL}/actuator/health" > /dev/null 2>&1; then
+            echo "✅ Service is healthy and responding!"
+            curl -s "${SERVICE_URL}/actuator/health" | jq '.' 2>/dev/null || curl -s "${SERVICE_URL}/actuator/health"
+            exit 0
+          fi
+          
+          # Fallback: try root endpoint or any successful response
+          echo "Actuator endpoint not available, trying root endpoint..."
+          if curl -s -f "${SERVICE_URL}/" > /dev/null 2>&1; then
+            echo "✅ Service is responding at root endpoint!"
+            exit 0
+          fi
+          
+          echo "Service not ready yet, waiting ${SLEEP_INTERVAL}s..."
+          sleep $SLEEP_INTERVAL
+          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+        done
+        
+        echo "❌ Service failed to start within ${TIMEOUT}s"
+        echo "Final attempt to get service status:"
+        railway status --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        exit 1
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
