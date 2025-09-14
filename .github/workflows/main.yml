@@ -89,6 +89,7 @@ jobs:
   deploy-dev:
     needs: [test, sonar]
     runs-on: ubuntu-latest
+    environment: dev
     if: github.ref == 'refs/heads/main'
 
     steps:
@@ -120,6 +121,7 @@ jobs:
 
     - name: Deploy to Railway App Service
       run: |
-        DATABASE_URL="${{ secrets.DATABASE_URL }}" MYSQL_USERNAME="${{ secrets.MYSQL_USERNAME }}" MYSQL_PASSWORD="${{ secrets.MYSQL_PASSWORD }}" railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
