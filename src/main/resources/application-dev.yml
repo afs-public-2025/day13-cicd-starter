@@ -7,24 +7,3 @@ logging:
     org.springframework.web: INFO
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: always
-  metrics:
-    export:
-      jmx:
-        enabled: false
-    enable:
-      process: false
-      system: false
-      jvm: false
-    binders:
-      processor: false
-      uptime: false
-      jvm: false
