@@ -139,74 +139,34 @@ jobs:
         
     - name: Health Check
       run: |
-        echo "Starting real health check (5 minutes max)..."
+        echo "Starting health check (5 minutes max)..."
         
-        # Get the service URL from Railway
-        echo "Getting service URL..."
-        SERVICE_URL=$(railway domain list --service ${{ secrets.RAILWAY_SERVICE_ID }} | head -n 1 | awk '{print $1}' || echo "")
-        
+        SERVICE_URL="${{ secrets.SERVICE_BASE_URL }}"
         if [ -z "$SERVICE_URL" ]; then
-          echo "⚠️  Could not get service URL from Railway, trying alternative method..."
-          SERVICE_URL="https://$(railway vars --service ${{ secrets.RAILWAY_SERVICE_ID }} | grep RAILWAY_PUBLIC_DOMAIN | cut -d '=' -f2 || echo "")"
-        fi
-        
-        if [ -z "$SERVICE_URL" ] || [ "$SERVICE_URL" = "https://" ]; then
-          echo "❌ Could not determine service URL, skipping health check"
-          echo "✅ Railway deployment completed - manual verification required"
-          exit 0
+          echo "❌ SERVICE_BASE_URL not configured in GitHub secrets"
+          exit 1
         fi
         
         echo "Service URL: $SERVICE_URL"
         
-        # Health check configuration
-        TIMEOUT=300          # 5 minutes maximum
-        ELAPSED=0
-        SLEEP_INTERVAL=20    # Check every 20 seconds
-        INITIAL_WAIT=30      # Wait 30 seconds before first check
+        # Wait 60 seconds for service startup
+        echo "Waiting 60 seconds for service to start..."
+        sleep 60
         
-        echo "Waiting ${INITIAL_WAIT} seconds for service to start..."
-        sleep $INITIAL_WAIT
-        
-        echo "Starting health check polling (max ${TIMEOUT}s)..."
-        
-        while [ $ELAPSED -lt $TIMEOUT ]; do
-          ATTEMPT=$((ELAPSED/SLEEP_INTERVAL + 1))
-          echo ""
-          echo "=== Health Check Attempt $ATTEMPT (${ELAPSED}s elapsed) ==="
+        # 5-minute health check with 30-second intervals
+        for i in {1..10}; do
+          echo "Health check attempt $i/10..."
           
-          # Try actuator health endpoint first
-          echo "🔍 Testing actuator health: ${SERVICE_URL}/actuator/health"
-          if curl -s -f --connect-timeout 10 --max-time 20 "${SERVICE_URL}/actuator/health" > /dev/null 2>&1; then
-            echo "✅ Actuator health check passed!"
-            curl -s "${SERVICE_URL}/actuator/health" | head -5
-            echo ""
-            echo "🎉 Service is healthy and responding!"
+          if curl -s -f --max-time 30 "${SERVICE_URL}/actuator/health" > /dev/null 2>&1; then
+            echo "✅ Service is healthy!"
             exit 0
-          else
-            echo "❌ Actuator endpoint not responding"
           fi
           
-          # Fallback: try root endpoint
-          echo "🔍 Testing root endpoint: ${SERVICE_URL}/"
-          HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null --connect-timeout 10 --max-time 20 "${SERVICE_URL}/" 2>/dev/null || echo "000")
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
-            echo "✅ Service responding with HTTP $HTTP_CODE"
-            echo "🎉 Service is up and running!"
-            exit 0
-          else
-            echo "❌ Service not responding (HTTP: $HTTP_CODE)"
+          if [ $i -lt 10 ]; then
+            echo "⏳ Service not ready, waiting 30s..."
+            sleep 30
           fi
-          
-          echo "⏳ Waiting ${SLEEP_INTERVAL}s before next attempt..."
-          sleep $SLEEP_INTERVAL
-          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
         done
         
-        echo ""
-        echo "❌ Health check failed after ${TIMEOUT} seconds"
-        echo "Service URL: $SERVICE_URL"
-        echo "Please check Railway deployment logs for issues"
+        echo "❌ Health check failed after 5 minutes"
         exit 1
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
