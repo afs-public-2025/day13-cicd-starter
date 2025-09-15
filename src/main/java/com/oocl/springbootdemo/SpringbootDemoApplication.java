@@ -13,8 +13,9 @@ public class SpringbootDemoApplication {
         SpringApplication.run(SpringbootDemoApplication.class, args);
     }
 
-    @GetMapping("health")
+    @GetMapping("/health")
     public String healthy() {
         return "I'm healthy";
     }
 }
+
