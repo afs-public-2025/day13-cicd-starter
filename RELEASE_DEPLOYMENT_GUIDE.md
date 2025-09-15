@@ -14,7 +14,7 @@ release分支推送 → test → sonar → deploy-uat (手动批准) → deploy-
 
 ## 1. GitHub Environment配置
 
-需要在GitHub仓库设置中创建两个Environment：
+需要在GitHub仓库设置中创建三个Environment：
 
 ### 步骤1：创建Environment
 1. 进入 `Settings` → `Environments`
@@ -99,6 +99,14 @@ Railway为每个环境提供独立的token，你需要：
 ## 3. Railway环境配置
 
 在Railway中为每个环境配置不同的环境变量：
+
+### DEV环境变量:
+```
+SPRING_PROFILES_ACTIVE=dev
+DATABASE_URL=your_dev_database_url
+MYSQL_USERNAME=your_dev_db_username
+MYSQL_PASSWORD=your_dev_db_password
+```
 
 ### UAT环境变量:
 ```
