@@ -8,7 +8,6 @@ logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
-# 修复Actuator metrics在容器环境的问题
 management:
   endpoints:
     web:
@@ -22,6 +21,10 @@ management:
       jmx:
         enabled: false
     enable:
-      # 禁用有问题的processor和system metrics
       process: false
       system: false
+      jvm: false
+    binders:
+      processor: false
+      uptime: false
+      jvm: false

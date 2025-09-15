@@ -24,3 +24,15 @@ management:
   endpoint:
     health:
       show-details: never
+  metrics:
+    export:
+      jmx:
+        enabled: false
+    enable:
+      process: false
+      system: false
+      jvm: false
+    binders:
+      processor: false
+      uptime: false
+      jvm: false

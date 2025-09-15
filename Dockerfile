@@ -25,5 +25,12 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application with JVM options for container environment
+ENTRYPOINT ["java", \
+    "-Djdk.internal.platform.cgroupv1=false", \
+    "-Djdk.internal.platform.cgroupv2=false", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-Dmanagement.metrics.binders.processor.enabled=false", \
+    "-Dmanagement.metrics.binders.jvm.enabled=false", \
+    "-jar", "app.jar"]

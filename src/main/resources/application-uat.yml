@@ -20,3 +20,15 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  metrics:
+    export:
+      jmx:
+        enabled: false
+    enable:
+      process: false
+      system: false
+      jvm: false
+    binders:
+      processor: false
+      uptime: false
+      jvm: false
