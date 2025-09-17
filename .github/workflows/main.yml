@@ -86,7 +86,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: ./gradlew build sonar --info
 
-  deploy-dev:
+  deploy-degv:
     needs: [test, sonar]
     runs-on: ubuntu-latest
     environment: dev
